@@ -5,11 +5,11 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Check, Download, FileText, FlaskCo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { BENCHMARK, HISTORICAL_COMPARISONS } from "@/lib/research-comparison";
+import { BENCHMARK as FROZEN_BENCHMARK, HISTORICAL_COMPARISONS, type ResearchBenchmark } from "@/lib/research-comparison";
 
 type Metric = "loss" | "wape" | "mae";
-type Model = (typeof BENCHMARK.models)[number];
-type Run = (typeof BENCHMARK.runs)[number];
+type Model = (typeof FROZEN_BENCHMARK.models)[number];
+type Run = (typeof FROZEN_BENCHMARK.runs)[number];
 type Score = {
   model: Model;
   runs: Run[];
@@ -20,16 +20,14 @@ type Score = {
   over: number;
   under: number;
   loss: number;
-  fitSeconds: number;
+  fitSeconds: number | null;
 };
 
 const number = (value: number, digits = 1) => new Intl.NumberFormat("ko-KR", { maximumFractionDigits: digits }).format(value);
 const metricLabels: Record<Metric, string> = { loss: "가중 손실", wape: "판매오차 WAPE", mae: "평균오차 MAE" };
-const splitNames = new Map(BENCHMARK.splits.map(split => [split.id, split.label]));
-const customModel = BENCHMARK.models.find(model => model.role === "custom")!;
-const candidateCount = BENCHMARK.models.filter(model => model.role === "candidate").length;
-const candidateRuns = BENCHMARK.runs.filter(run => run.modelId !== customModel.id);
-const familyNames = [...new Set(BENCHMARK.models.map(model => model.family))];
+const splitNames = new Map(FROZEN_BENCHMARK.splits.map(split => [split.id, split.label]));
+const candidateCount = FROZEN_BENCHMARK.models.filter(model => model.role === "candidate").length;
+const familyNames = [...new Set(FROZEN_BENCHMARK.models.map(model => model.family))];
 
 function aggregate(model: Model, runs: Run[]): Score {
   const n = runs.reduce((sum, run) => sum + run.n, 0);
@@ -42,7 +40,7 @@ function aggregate(model: Model, runs: Run[]): Score {
     over: runs.reduce((sum, run) => sum + run.over, 0),
     under: runs.reduce((sum, run) => sum + run.under, 0),
     loss: runs.reduce((sum, run) => sum + run.loss, 0),
-    fitSeconds: runs.reduce((sum, run) => sum + run.fitSeconds, 0),
+    fitSeconds: runs.every(run => run.fitSeconds !== null) ? runs.reduce((sum, run) => sum + (run.fitSeconds ?? 0), 0) : null,
   };
 }
 
@@ -58,7 +56,7 @@ function csvCell(value: string | number) {
 function downloadVisibleScores(scores: Score[], scope: string) {
   const rows: Array<Array<string | number>> = [
     ["모델ID", "모델", "계열", "역할", "평가범위", "실험수", "관측수", "실제합계", "WAPE_pct", "MAE", "과다예측", "부족예측", "가중손실", "실행초"],
-    ...scores.map(score => [score.model.id, score.model.name, score.model.family, score.model.role, scope, score.runs.length, score.n, score.actualTotal, score.wape, score.mae, score.over, score.under, score.loss, score.fitSeconds]),
+    ...scores.map(score => [score.model.id, score.model.name, score.model.family, score.model.role, scope, score.runs.length, score.n, score.actualTotal, score.wape, score.mae, score.over, score.under, score.loss, score.fitSeconds ?? "미측정"]),
   ];
   downloadCsv(rows, `내일의빵_모델비교_${scope}.csv`);
 }
@@ -66,7 +64,7 @@ function downloadVisibleScores(scores: Score[], scope: string) {
 function downloadVisibleRuns(runs: Run[], scope: string) {
   const rows: Array<Array<string | number>> = [
     ["실험ID", "모델ID", "모델", "평가구간", "관측수", "실제합계", "WAPE_pct", "MAE", "과다예측", "부족예측", "가중손실", "실행초"],
-    ...runs.map(run => [run.id, run.modelId, BENCHMARK.models.find(model => model.id === run.modelId)!.name, splitNames.get(run.splitId)!, run.n, run.actualTotal, run.wape, run.mae, run.over, run.under, run.loss, run.fitSeconds]),
+    ...runs.map(run => [run.id, run.modelId, FROZEN_BENCHMARK.models.find(model => model.id === run.modelId)!.name, splitNames.get(run.splitId)!, run.n, run.actualTotal, run.wape, run.mae, run.over, run.under, run.loss, run.fitSeconds ?? "미측정"]),
   ];
   downloadCsv(rows, `내일의빵_전체실험_${scope}.csv`);
 }
@@ -81,7 +79,10 @@ function downloadCsv(rows: Array<Array<string | number>>, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function ResearchComparison({ onOpenStore }: { onOpenStore: () => void }) {
+export default function ResearchComparison({ onOpenStore, benchmark = FROZEN_BENCHMARK }: { onOpenStore: () => void; benchmark?: ResearchBenchmark }) {
+  const BENCHMARK = benchmark;
+  const customModel = BENCHMARK.models.find(model => model.role === "custom")!;
+  const candidateRuns = BENCHMARK.runs.filter(run => run.modelId !== customModel.id);
   const [split, setSplit] = useState("all");
   const [metric, setMetric] = useState<Metric>("loss");
   const [query, setQuery] = useState("");
@@ -91,7 +92,7 @@ export default function ResearchComparison({ onOpenStore }: { onOpenStore: () =>
   const [page, setPage] = useState(1);
 
   const scores = useMemo(() => BENCHMARK.models.map(model => aggregate(model, BENCHMARK.runs.filter(run => run.modelId === model.id && (split === "all" || run.splitId === split))))
-    .filter(score => score.n > 0).sort((a, b) => a[metric] - b[metric] || a.model.name.localeCompare(b.model.name)), [split, metric]);
+    .filter(score => score.n > 0).sort((a, b) => a[metric] - b[metric] || a.model.name.localeCompare(b.model.name)), [BENCHMARK, split, metric]);
   const own = scores.find(score => score.model.role === "custom")!;
   const winner = scores[0];
   const ranks = new Map(scores.map(score => [score.model.id, scores.findIndex(other => other[metric] === score[metric]) + 1]));
@@ -116,15 +117,15 @@ export default function ResearchComparison({ onOpenStore }: { onOpenStore: () =>
 
   return <div className="research-lab">
     <div className="research-controls">
-      <div className="research-complete"><span><Check size={14}/></span><strong>{candidateRuns.length}회 비교 실험 완료</strong><span className="quiet">최종 모델 {BENCHMARK.splits.length}회 추가 평가</span></div>
+      <div className="research-complete"><span><Check size={14}/></span><strong>{candidateRuns.length}개 비교 결과</strong><span className="quiet">최종 모델 {BENCHMARK.splits.length}개 구간 평가</span></div>
       <label className="research-select"><span>평가 범위</span><select aria-label="연구 평가 범위" value={split} onChange={event => { setSplit(event.target.value); setPage(1); }}><option value="all">전체 {BENCHMARK.splits.length}개 구간 합산</option>{BENCHMARK.splits.map(item => <option key={item.id} value={item.id}>{item.label} · {item.testStart}~{item.testEnd}</option>)}</select></label>
     </div>
 
     <div className="research-hero-grid">
       <section className="my-model-card" aria-labelledby="my-model-title">
         <div className="my-model-top"><span className="research-kicker">MY FINAL MODEL</span><span className="my-model-label">내가 만든 모델</span></div>
-        <h2 id="my-model-title">최종 결합 모델</h2>
-        <p className="my-model-description">Extra Trees와 보정 앙상블을 내가 정한 비중으로 결합했어요.</p>
+        <h2 id="my-model-title">{customModel.name}</h2>
+        <p className="my-model-description">{customModel.description}</p>
         <div className="my-model-scores"><div><p>판매오차 WAPE</p><strong>{number(own.wape, 2)}<small>%</small></strong></div><div><p>{metricLabels[metric]} 순위</p><strong>{ownRank}<small>/ {scores.length}</small></strong></div><div><p>가중 손실</p><strong>{number(own.loss, 0)}</strong></div></div>
         <div className="weight-track" aria-label="Extra Trees 26.75%, 보정 앙상블 73.25%"><span/><span/></div>
         <div className="weight-labels"><span>Extra Trees <strong>26.75%</strong></span><span>보정 앙상블 <strong>73.25%</strong></span></div>
@@ -137,11 +138,11 @@ export default function ResearchComparison({ onOpenStore }: { onOpenStore: () =>
           <div className="winner-value">{scoreText(winner, metric)}<small>{metric === "wape" ? "낮을수록 좋음" : `${unit} 기준 · 낮을수록 좋음`}</small></div>
           <p>{winner.model.role === "custom" ? "최종 결합 모델이 선택한 지표에서 가장 낮은 오차를 기록했습니다." : `내 최종 모델과 ${number(Math.abs(own[metric] - winner[metric]), metric === "loss" ? 0 : 2)}${metric === "wape" ? "%p" : ""} 차이입니다.`}</p>
         </section>
-        <section className="research-scale-card"><div><strong>{candidateCount}</strong><span>비교 설정</span></div><span>×</span><div><strong>{BENCHMARK.splits.length}</strong><span>시간 구간</span></div><span>=</span><div><strong>{candidateRuns.length}</strong><span>실제 실험</span></div></section>
+        <section className="research-scale-card"><div><strong>{candidateCount}</strong><span>비교 설정</span></div><span>×</span><div><strong>{BENCHMARK.splits.length}</strong><span>시간 구간</span></div><span>=</span><div><strong>{candidateRuns.length}</strong><span>평가 결과</span></div></section>
       </div>
     </div>
 
-    <div className="research-provenance"><FlaskConical size={19}/><p><strong>이번에 새로 학습하고 계산한 비교입니다.</strong> 과거 대화의 102회 성적을 재사용하지 않았습니다. {BENCHMARK.dataset.title}의 {BENCHMARK.dataset.target}를 예측하며, 실제 매장 성과는 <button onClick={onOpenStore}>매장 실적 비교 <ArrowUpRight size={13}/></button>에서 확인합니다.</p></div>
+    <div className="research-provenance"><FlaskConical size={19}/><p><strong>공개 자료로 실제 계산한 비교입니다.</strong> {BENCHMARK.protocol.description} {BENCHMARK.dataset.title}의 {BENCHMARK.dataset.target}를 예측하며, 실제 매장 성과는 <button onClick={onOpenStore}>매장 실적 비교 <ArrowUpRight size={13}/></button>에서 확인합니다.</p></div>
 
     <section className="panel research-chart-panel">
       <div className="panel-heading"><div><p className="eyebrow">SAME DATA, SAME RULES</p><h2>내 모델과 주요 모델, 얼마나 차이 날까요?</h2></div><div className="metric-switch" role="group" aria-label="연구 순위 지표">{(["loss", "wape", "mae"] as Metric[]).map(item => <button key={item} aria-pressed={metric === item} onClick={() => setMetric(item)}>{item === "loss" ? "가중 손실" : item.toUpperCase()}</button>)}</div></div>
@@ -152,7 +153,7 @@ export default function ResearchComparison({ onOpenStore }: { onOpenStore: () =>
     </section>
 
     <section className="panel research-all-models">
-      <div className="panel-heading"><div><p className="eyebrow">THE COMPLETE BENCHMARK</p><h2>전체 모델과 {candidateRuns.length}회 실험을 살펴보세요</h2></div><Button variant="outline" size="sm" onClick={() => view === "models" ? downloadVisibleScores(visibleScores, split) : downloadVisibleRuns(visibleRuns, split)}><Download size={15}/>현재 비교 CSV</Button></div>
+      <div className="panel-heading"><div><p className="eyebrow">THE COMPLETE BENCHMARK</p><h2>전체 모델과 {candidateRuns.length}회 실험을 살펴보세요</h2></div><Button variant="outline" size="sm" onClick={() => view === "models" ? downloadVisibleScores(visibleScores, `${BENCHMARK.version}_${split}`) : downloadVisibleRuns(visibleRuns, `${BENCHMARK.version}_${split}`)}><Download size={15}/>현재 비교 CSV</Button></div>
       <div className="research-table-top"><div className="research-view-switch" role="group" aria-label="연구 결과 표시 방식"><button aria-pressed={view === "models"} onClick={() => setView("models")}>모델별 종합 <span>{BENCHMARK.models.length}</span></button><button aria-pressed={view === "runs"} onClick={() => { setView("runs"); setPage(1); }}>전체 실험 <span>{candidateRuns.length}</span></button></div><p className="quiet">최종 모델은 기본 {candidateRuns.length}회와 별도로 평가했습니다.</p></div>
       <div className="research-filter-row"><label className="research-search"><Search size={17}/><Input aria-label="연구 모델 검색" placeholder="모델명, 계열, 설정 검색" value={query} onChange={event => { setQuery(event.target.value); setPage(1); }}/></label><label className="research-family"><SlidersHorizontal size={16}/><select aria-label="연구 모델 계열" value={family} onChange={event => { setFamily(event.target.value); setPage(1); }}><option value="all">모든 계열</option>{familyNames.map(name => <option key={name} value={name}>{name}</option>)}</select></label><span className="quiet" role="status">{view === "models" ? visibleScores.length : visibleRuns.length}개 결과</span></div>
       <div className="table-wrap research-table-wrap">

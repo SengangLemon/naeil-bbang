@@ -2,7 +2,7 @@ import data from "@/public/research/benchmark.json";
 
 export type BenchmarkModel = {id:string;name:string;family:string;role:"candidate"|"custom";parameters:string;description:string};
 export type BenchmarkSplit = {id:string;label:string;trainStart:string;trainEnd:string;calibrationStart:string;calibrationEnd:string;testStart:string;testEnd:string;n:number;trainN?:number;calibrationN?:number;featureHash?:string};
-export type BenchmarkRun = {id:string;modelId:string;splitId:string;n:number;actualTotal:number;wape:number;mae:number;over:number;under:number;loss:number;fitSeconds:number;status:"completed";weights?:number[];warnings?:string[]};
+export type BenchmarkRun = {id:string;modelId:string;splitId:string;n:number;actualTotal:number;wape:number;mae:number;over:number;under:number;loss:number;fitSeconds:number|null;status:"completed";weights?:number[];warnings?:string[]};
 export type ResearchBenchmark = {
  version:string;generatedAt:string;seed:number;status?:string;
  dataset:{title:string;url:string;target:string;unit:string;rows:number;products:{id:number;name:string}[];start:string;end:string};

@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - 'research/rebuild/**'
+      - '!research/rebuild/rolling_benchmark.py'
+      - '!research/rebuild/test_rolling_benchmark.py'
       - '.github/workflows/rebuild-benchmark.yml'
 
 permissions:
