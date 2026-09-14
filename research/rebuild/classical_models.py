@@ -50,7 +50,7 @@ def scales(raw,columns):
 def baseline(name,bundle,daily):
     output=[];by_product={p:group.set_index('date').y for p,group in daily.groupby('product')}
     for product,date in zip(bundle['product_eval'],bundle['dates_eval']):
-        date=pd.Timestamp(date);history=by_product[product]
+        date=pd.Timestamp(str(date));history=by_product[product]
         if name=='recent-7':values=history.reindex(pd.date_range(date-pd.Timedelta(days=7),date-pd.Timedelta(days=1))).dropna().to_numpy()
         elif name=='weekday-8':values=history.reindex([date-pd.Timedelta(days=7*k) for k in range(1,9)]).dropna().to_numpy()
         else:
@@ -111,11 +111,11 @@ def differential(name,bundle,daily,seed):
         observed=daily[daily['product']==product].set_index('date').y.sort_index()
         # Calendar regression is evaluated with each past day's known calendar fields.
         def cal_x(date):
-            date=pd.Timestamp(date);doy=(date-pd.Timestamp(f'{date.year}-01-01')).days
+            date=pd.Timestamp(str(date));doy=(date-pd.Timestamp(f'{date.year}-01-01')).days
             raw={**{f'sin{j}':np.sin(j*2*np.pi*doy/365.25) for j in [1,2]},**{f'cos{j}':np.cos(j*2*np.pi*doy/365.25) for j in [1,2]},**{f'dow_{j}':float(date.dayofweek==j) for j in range(7)}}
             return np.array([(raw[columns[c]]-bundle['mean'][c])/bundle['scale'][c] for c in calendar_cols])[None,:]
         for i in np.flatnonzero(evaluate):
-            date=pd.Timestamp(bundle['dates_eval'][i]);past=observed[observed.index<date];previous_date=past.index[-1]
+            date=pd.Timestamp(str(bundle['dates_eval'][i]));past=observed[observed.index<date];previous_date=past.index[-1]
             start=float(np.log1p(past.iloc[-1])-calendar.predict(cal_x(previous_date))[0]);duration=max(1,(date-previous_date).days);base=float(calendar.predict(bundle['X_eval'][i:i+1,calendar_cols])[0])
             if name=='ou-sde':
                 equilibrium=a/k;decay=np.exp(-k*duration);mu=equilibrium+(start-equilibrium)*decay;sd=sigma*np.sqrt((1-decay*decay)/(2*k));samples=mu+stats.norm.ppf(QS)*sd
