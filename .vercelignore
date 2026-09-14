@@ -10,7 +10,8 @@ node_modules
 dist
 work
 outputs
-research
+# Exclude local training code, while shipping public/research results.
+/research/
 db
 drizzle
 build
