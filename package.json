@@ -1,17 +1,15 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "bread-daily-planner",
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": "24.x"
   },
   "scripts": {
-    "install:ci": "bash scripts/install-pnpm.sh",
-    "dev": "node scripts/run-framework.mjs dev",
-    "build": "node scripts/run-framework.mjs build",
-    "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "dev": "next dev",
+    "build": "node verify-benchmark.cjs && next build",
+    "start": "next start",
+    "lint": "eslint app components lib hooks"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -64,6 +62,5 @@
     "miniflare": {
       "sharp": "0.35.4"
     }
-  },
-  "packageManager": "pnpm@11.25.0"
+  }
 }
