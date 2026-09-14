@@ -36,6 +36,7 @@ yarn-error.log*
 
 # typescript
 next-env.d.ts
+*.tsbuildinfo
 /dist/
 /.wrangler/
 # Checkout-local execution profile and tool state; never publish them.
@@ -44,3 +45,22 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+
+# Local data and backups stay on the current device.
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+/backups/
+
+# Reproducible research keeps code and results, not local Python installations.
+/research/rebuild/python-deps/
+/research/rebuild/raw/
+/research/rebuild/cache/
+/research/rebuild/*.npz
+/research/rebuild/feature-rows.csv
+/research/rebuild/daily-sales.csv
+__pycache__/
+*.py[cod]
+.venv/
