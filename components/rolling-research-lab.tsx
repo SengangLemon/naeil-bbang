@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import ResearchComparison from "./research-comparison";
+import ChronosComparison from "./chronos-comparison";
 import { ROLLING, UPDATE_OPTIONS, comparisonBenchmark, type ModelUpdate, type ComparisonUpdate } from "@/lib/rolling-comparison";
 
 const format = (n: number, digits = 2) => new Intl.NumberFormat("ko-KR", { maximumFractionDigits: digits }).format(n);
@@ -26,6 +27,7 @@ export default function RollingResearchLab({ onOpenStore }: { onOpenStore: () =>
   const strongest = ROLLING.aggregate.filter(row => row.group === "rolling").toSorted((a, b) => a.loss - b.loss)[0];
   const uncertainty = ROLLING.pairedComparisons.find(pair => pair.variantSeriesId === primary.seriesId && pair.referenceSeriesId === strongest.seriesId && pair.blockDays === 14)!;
   return <div className="rolling-lab">
+    <ChronosComparison/>
     <section className="rolling-setup" aria-label="날짜별 갱신 비교 설정">
       <div className="rolling-setup-heading"><div><RefreshCw size={18}/><strong>전날까지의 실적으로, 날짜마다 다시 예측</strong></div><a href="/research/rolling/model-evidence.pptx" download><Download size={15}/>근거자료 PPT</a></div>
       <div className="rolling-options">

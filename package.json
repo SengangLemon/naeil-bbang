@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "node verify-benchmark.cjs && node verify-rolling.cjs && next build",
+    "build": "node verify-benchmark.cjs && node verify-rolling.cjs && node verify-chronos.cjs && next build",
     "start": "next start",
     "lint": "eslint app components lib hooks"
   },
