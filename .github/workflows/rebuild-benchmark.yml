@@ -8,6 +8,7 @@ on:
       - 'research/rebuild/**'
       - '!research/rebuild/rolling_benchmark.py'
       - '!research/rebuild/test_rolling_benchmark.py'
+      - '!research/rebuild/chronos*'
       - '.github/workflows/rebuild-benchmark.yml'
 
 permissions:
